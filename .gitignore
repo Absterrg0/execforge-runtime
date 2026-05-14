@@ -1,0 +1,21 @@
+# Dependencies — never commit these
+node_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Local state files written by the action at runtime
+.execforge/
+
+# OS / editor noise
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# NOTE: dist/ is intentionally NOT ignored.
+# GitHub Actions requires the compiled JS to be committed to the repository
+# because the runner downloads the repo at the specified ref and executes
+# dist/action.js directly — there is no npm install step during action download.
+# See: https://docs.github.com/en/actions/creating-actions/creating-a-javascript-action#commit-tag-and-push-your-action-to-github

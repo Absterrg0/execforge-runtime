@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to create (e.g. v1.2.0). Leave blank to skip tagging.'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-commit:
+    name: Build dist & commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use a token with write access so the commit push is allowed
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build dist/
+        run: npm run build
+
+      - name: Commit updated dist/ (if changed)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/
+          if git diff --cached --quiet; then
+            echo "dist/ unchanged — nothing to commit."
+          else
+            git commit -m "chore: rebuild dist/ [skip ci]"
+            git push
+          fi
+
+  tag-release:
+    name: Tag release
+    needs: build-and-commit
+    runs-on: ubuntu-latest
+    # Only run if a tag was requested via workflow_dispatch
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch fresh after the build commit
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push version tag
+        run: |
+          TAG="${{ inputs.tag }}"
+          # Also move the major floating tag (e.g. v1 → latest v1.x.x)
+          MAJOR=$(echo "$TAG" | cut -d. -f1)
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create the exact semver tag
+          git tag "$TAG" -m "Release $TAG"
+
+          # Move the floating major tag (v1, v2, …) to this commit
+          git tag -f "$MAJOR" -m "Floating tag $MAJOR → $TAG"
+
+          git push origin "$TAG"
+          git push origin "$MAJOR" --force

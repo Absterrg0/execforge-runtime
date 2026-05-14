@@ -1,0 +1,35 @@
+name: ExecForge Runtime — Finish
+description: >
+  End telemetry capture and post results to ExecForge. Always use with if: always()
+  so telemetry is posted even when earlier steps fail. Pair with
+  Absterrg0/execforge-runtime/start@v1. Pass job.status via the
+  EXECFORGE_JOB_STATUS environment variable to capture the real job outcome.
+author: ExecForge
+
+inputs:
+  token:
+    description: "Token override. Prefer the EXECFORGE_API_TOKEN environment variable."
+    required: false
+  api-url:
+    description: "API endpoint override. Defaults to https://execforge.vercel.app."
+    required: false
+  exit-code:
+    description: "Exit code override. Prefer EXECFORGE_JOB_STATUS: ${{ job.status }} env instead."
+    required: false
+  # mode is intentionally fixed to 'finish' — do not expose it to users
+  mode:
+    description: "Fixed: finish"
+    required: false
+    default: "finish"
+
+outputs:
+  posted:
+    description: "Set to 'true' when telemetry was posted successfully."
+
+runs:
+  using: node20
+  main: ../dist/action.js
+
+branding:
+  icon: stop-circle
+  color: blue

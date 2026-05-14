@@ -1,0 +1,32 @@
+name: ExecForge Runtime — Start
+description: >
+  Begin telemetry capture for the current job. Pair with
+  Absterrg0/execforge-runtime/finish@v1 at the end of your steps.
+  This sub-action has no post-job hook, giving you full control over
+  when capture starts and ends — with zero download overhead.
+author: ExecForge
+
+inputs:
+  token:
+    description: "Token override. Prefer the EXECFORGE_API_TOKEN environment variable."
+    required: false
+  api-url:
+    description: "API endpoint override. Defaults to https://execforge.vercel.app."
+    required: false
+  # mode is intentionally fixed to 'start' — do not expose it to users
+  mode:
+    description: "Fixed: start"
+    required: false
+    default: "start"
+
+outputs:
+  started:
+    description: "Set to 'true' when capture was started successfully."
+
+runs:
+  using: node20
+  main: ../dist/action.js
+
+branding:
+  icon: play
+  color: blue

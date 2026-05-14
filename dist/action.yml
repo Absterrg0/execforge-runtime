@@ -1,0 +1,54 @@
+name: ExecForge Runtime
+description: >
+  Zero-overhead CI telemetry for GitHub Actions. Captures CPU, memory, duration,
+  and job outcome for every run and sends it to your ExecForge dashboard.
+  Use the start/finish sub-actions for the cleanest integration, or mode=auto
+  for a single-step setup with the post-job hook.
+author: ExecForge
+
+inputs:
+  mode:
+    description: >
+      Capture mode:
+        'auto'   (default) — single step; starts on main run, posts on post-job hook.
+                             Add EXECFORGE_JOB_STATUS: ${{ job.status }} to the env
+                             to capture the real job outcome.
+        'start'  — explicit start step (use with finish sub-action, preferred).
+        'finish' — explicit finish step; always pair with if: always().
+        'run'    — (legacy) wraps one shell command; prefer start/finish instead.
+    required: false
+    default: "auto"
+  command:
+    description: "Shell command to run and capture (mode=run only)."
+    required: false
+  exit-code:
+    description: "Exit code override for mode=finish. Prefer EXECFORGE_JOB_STATUS env instead."
+    required: false
+  token:
+    description: "Token override. Prefer the EXECFORGE_API_TOKEN environment variable."
+    required: false
+  api-url:
+    description: "API endpoint override. Defaults to https://execforge.vercel.app."
+    required: false
+  sample-interval-sec:
+    description: "Resource sampling interval in seconds (for mode=run only)."
+    required: false
+    default: "5"
+
+outputs:
+  started:
+    description: "Set to 'true' when capture was started."
+  posted:
+    description: "Set to 'true' when telemetry was posted successfully."
+  exit-code:
+    description: "Exit code of the wrapped command (mode=run only)."
+
+runs:
+  using: node20
+  main: dist/action.js
+  post: dist/action.js
+  post-if: always()
+
+branding:
+  icon: activity
+  color: blue

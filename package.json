@@ -1,0 +1,32 @@
+{
+  "name": "@execforge/runtime",
+  "version": "0.2.0",
+  "description": "ExecForge runtime telemetry SDK and GitHub Action.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "execforge": "dist/cli.js",
+    "execforge-runtime": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "action.yml",
+    "start",
+    "finish",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-action.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  }
+}
