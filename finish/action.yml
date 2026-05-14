@@ -14,7 +14,7 @@ inputs:
     description: "API endpoint override. Defaults to https://execforge.vercel.app."
     required: false
   exit-code:
-    description: "Exit code override. Prefer EXECFORGE_JOB_STATUS: ${{ job.status }} env instead."
+    description: "Exit code override. Prefer setting EXECFORGE_JOB_STATUS env var to job.status value instead."
     required: false
   # mode is intentionally fixed to 'finish' — do not expose it to users
   mode:
