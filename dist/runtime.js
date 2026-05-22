@@ -130,7 +130,7 @@ export async function finishCapture(config, params = {}) {
 }
 export function buildEnvelope(telemetry) {
     const runId = process.env.GITHUB_RUN_ID ?? `local-${Date.now()}`;
-    const attempt = process.env.GITHUB_RUN_ATTEMPT ?? "1";
+    const attempt = process.env.GITHUB_RUN_ATTEMPT || "1";
     return {
         schemaVersion: SCHEMA_VERSION,
         collectorVersion: COLLECTOR_VERSION,

@@ -171,7 +171,9 @@ export async function finishCapture(
 
 export function buildEnvelope(telemetry: RuntimeTelemetry): RuntimeEnvelope {
   const runId = process.env.GITHUB_RUN_ID ?? `local-${Date.now()}`;
-  const attempt = process.env.GITHUB_RUN_ATTEMPT ?? "1";
+  // Use || so an empty GITHUB_RUN_ATTEMPT (seen on some runners) still maps to "1"
+  // and matches webhook ingestion keys `${id}:${attempt}`.
+  const attempt = process.env.GITHUB_RUN_ATTEMPT || "1";
   return {
     schemaVersion: SCHEMA_VERSION,
     collectorVersion: COLLECTOR_VERSION,
