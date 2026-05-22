@@ -158,6 +158,30 @@ function toRepoRelativePath(absPath: string): string {
 export function parseJUnitXmlFile(xmlContent: string): ParsedTest[] {
   const tests: ParsedTest[] = [];
 
+  // First, build a map of testsuite names (which contain file paths in Node's reporter).
+  // Node's junit reporter wraps each file in a <testsuite name="/abs/path/to/test.js">.
+  const suiteFileMap = new Map<number, string>();
+  const suiteRe = /<testsuite\b([^>]*)>/gi;
+  let suiteMatch: RegExpExecArray | null;
+  while ((suiteMatch = suiteRe.exec(xmlContent)) !== null) {
+    const suiteName = xmlAttr(suiteMatch[1], "name");
+    if (suiteName) {
+      suiteFileMap.set(suiteMatch.index, toRepoRelativePath(suiteName));
+    }
+  }
+
+  // Sort suite positions so we can find which suite a testcase belongs to.
+  const suitePositions = [...suiteFileMap.entries()].sort((a, b) => a[0] - b[0]);
+
+  function findSuiteFile(testcaseIndex: number): string {
+    let result = "";
+    for (const [pos, file] of suitePositions) {
+      if (pos <= testcaseIndex) result = file;
+      else break;
+    }
+    return result;
+  }
+
   // Match both self-closing <testcase .../> and element <testcase ...>...</testcase>
   const testcaseRe = /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/gi;
   let match: RegExpExecArray | null;
@@ -169,8 +193,22 @@ export function parseJUnitXmlFile(xmlContent: string): ParsedTest[] {
     const name = xmlAttr(attrs, "name");
     if (!name) continue;
 
-    const rawFile = xmlAttr(attrs, "file") || xmlAttr(attrs, "classname") || "";
-    const file = toRepoRelativePath(rawFile);
+    // Resolution order: explicit file attr → testsuite name → classname → "unknown"
+    const rawFile = xmlAttr(attrs, "file");
+    const rawClassname = xmlAttr(attrs, "classname");
+    const suiteFile = findSuiteFile(match.index);
+
+    let file: string;
+    if (rawFile) {
+      file = toRepoRelativePath(rawFile);
+    } else if (suiteFile && suiteFile !== "test" && suiteFile !== "tests") {
+      file = suiteFile;
+    } else if (rawClassname && rawClassname !== "test" && rawClassname !== "tests") {
+      file = toRepoRelativePath(rawClassname);
+    } else {
+      file = suiteFile || rawClassname || "unknown";
+    }
+
     const time = parseFloat(xmlAttr(attrs, "time") || "0");
     const durationSec = Number.isFinite(time) ? time : 0;
 
