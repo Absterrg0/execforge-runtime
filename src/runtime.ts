@@ -109,6 +109,91 @@ function jobStatusToExitCode(status: string | undefined): number {
   }
 }
 
+// ─── JUnit XML parser ─────────────────────────────────────────────────────────
+
+interface ParsedTest {
+  name: string;
+  file: string;
+  durationSec: number;
+  failed: boolean;
+  failureMessage?: string;
+}
+
+/** Decode the five XML predefined entities. */
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+/** Extract a single XML attribute value from a tag string. */
+function xmlAttr(tag: string, name: string): string {
+  const re = new RegExp(`\\b${name}="([^"]*)"`, "i");
+  const match = tag.match(re);
+  if (match) return decodeXmlEntities(match[1]);
+  const sq = new RegExp(`\\b${name}='([^']*)'`, "i");
+  const sqMatch = tag.match(sq);
+  return sqMatch ? decodeXmlEntities(sqMatch[1]) : "";
+}
+
+/**
+ * Strip runner workspace prefix from an absolute file path to get a
+ * repo-relative path.  GitHub Actions runners use paths like
+ * /home/runner/work/<repo>/<repo>/test/foo.test.js
+ */
+function toRepoRelativePath(absPath: string): string {
+  // /home/runner/work/<repo>/<repo>/... → test/...
+  const runnerRe = /^\/home\/runner\/work\/[^/]+\/[^/]+\//;
+  const stripped = absPath.replace(runnerRe, "");
+  return stripped || absPath;
+}
+
+/**
+ * Parse a JUnit XML file from disk. Expects well-formed XML — no log-line
+ * stripping needed since the file is written directly by the test runner.
+ */
+export function parseJUnitXmlFile(xmlContent: string): ParsedTest[] {
+  const tests: ParsedTest[] = [];
+
+  // Match both self-closing <testcase .../> and element <testcase ...>...</testcase>
+  const testcaseRe = /<testcase\b([^>]*?)(?:\/>|>([\s\S]*?)<\/testcase>)/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = testcaseRe.exec(xmlContent)) !== null) {
+    const attrs = match[1];
+    const body = match[2] ?? "";
+
+    const name = xmlAttr(attrs, "name");
+    if (!name) continue;
+
+    const rawFile = xmlAttr(attrs, "file") || xmlAttr(attrs, "classname") || "";
+    const file = toRepoRelativePath(rawFile);
+    const time = parseFloat(xmlAttr(attrs, "time") || "0");
+    const durationSec = Number.isFinite(time) ? time : 0;
+
+    const hasFailure = /<failure\b/i.test(body);
+    const hasError = /<error\b/i.test(body);
+    const failed = hasFailure || hasError;
+
+    let failureMessage: string | undefined;
+    if (failed) {
+      const msgMatch = body.match(/<(?:failure|error)\b[^>]*?(?:message="([^"]*)")?[^>]*>/i);
+      if (msgMatch?.[1]) {
+        failureMessage = decodeXmlEntities(msgMatch[1]);
+      }
+    }
+
+    tests.push({ name, file, durationSec, failed, failureMessage });
+  }
+
+  return tests;
+}
+
+// ─── Capture lifecycle ────────────────────────────────────────────────────────
+
 export async function finishCapture(
   config: RuntimeConfig,
   params: {
@@ -136,6 +221,18 @@ export async function finishCapture(
   const normalizedJobStatus =
     (jobStatusEnv?.toLowerCase() as RuntimeTelemetry["jobStatus"]) ?? undefined;
 
+  // ── Parse JUnit XML test results if available ──────────────────────────
+  let tests: ParsedTest[] | undefined;
+  if (config.junitPath && existsSync(config.junitPath)) {
+    try {
+      const xml = await readFile(config.junitPath, "utf8");
+      tests = parseJUnitXmlFile(xml);
+      console.log(`${LOG_PREFIX} Parsed ${tests.length} test(s) from ${config.junitPath}`);
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Failed to read JUnit XML at ${config.junitPath}:`, err);
+    }
+  }
+
   const telemetry: RuntimeTelemetry = {
     ...state,
     captureFinishedAt: new Date().toISOString(),
@@ -159,6 +256,7 @@ export async function finishCapture(
               source: "execforge-runtime",
             },
           ],
+    tests,
   };
 
   const envelope = buildEnvelope(telemetry);

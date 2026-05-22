@@ -14,6 +14,8 @@ export interface RuntimeConfig {
   retryCount: number;
   /** Per-attempt timeout in ms (default: 10_000) */
   timeoutMs: number;
+  /** Path to a JUnit XML results file (default: "junit-results.xml" in workspace) */
+  junitPath?: string;
 }
 
 function parseDotEnv(path: string): Record<string, string> {
@@ -39,6 +41,7 @@ export function loadRuntimeConfig(overrides: {
   workspace?: string;
   retryCount?: number;
   timeoutMs?: number;
+  junitPath?: string;
 } = {}): RuntimeConfig {
   const workspace = overrides.workspace ?? process.env.GITHUB_WORKSPACE ?? process.cwd();
   const envFile = parseDotEnv(resolve(workspace, ".env"));
@@ -58,6 +61,12 @@ export function loadRuntimeConfig(overrides: {
     envFile.EXECFORGE_API_TOKEN ??
     envFile.EXECFORGE_INGESTION_TOKEN;
 
+  const junitPath =
+    overrides.junitPath ??
+    process.env.EXECFORGE_JUNIT_PATH ??
+    envFile.EXECFORGE_JUNIT_PATH ??
+    undefined;
+
   return {
     apiUrl: apiUrl.replace(/\/$/, ""),
     token,
@@ -67,5 +76,6 @@ export function loadRuntimeConfig(overrides: {
     retryCount: overrides.retryCount ?? Number(process.env.EXECFORGE_RETRY_COUNT ?? 3),
     timeoutMs: overrides.timeoutMs ?? Number(process.env.EXECFORGE_TIMEOUT_MS ?? 10_000),
     workspace,
+    junitPath: junitPath ? resolve(workspace, junitPath) : undefined,
   };
 }

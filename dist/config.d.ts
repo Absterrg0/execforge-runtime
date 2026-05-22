@@ -10,6 +10,8 @@ export interface RuntimeConfig {
     retryCount: number;
     /** Per-attempt timeout in ms (default: 10_000) */
     timeoutMs: number;
+    /** Path to a JUnit XML results file (default: "junit-results.xml" in workspace) */
+    junitPath?: string;
 }
 export declare function loadRuntimeConfig(overrides?: {
     apiUrl?: string;
@@ -18,4 +20,5 @@ export declare function loadRuntimeConfig(overrides?: {
     workspace?: string;
     retryCount?: number;
     timeoutMs?: number;
+    junitPath?: string;
 }): RuntimeConfig;
