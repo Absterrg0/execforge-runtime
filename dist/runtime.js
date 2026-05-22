@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { cpus, platform, totalmem } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { COLLECTOR_VERSION, SCHEMA_VERSION } from "./config.js";
 const STATE_DIR = ".execforge";
 const STATE_FILE = "runtime-state.json";
@@ -163,16 +163,30 @@ export async function finishCapture(config, params = {}) {
                 ? jobStatusToExitCode(jobStatusEnv)
                 : 0);
     const normalizedJobStatus = jobStatusEnv?.toLowerCase() ?? undefined;
-    // ── Parse JUnit XML test results if available ──────────────────────────
+    // ── Auto-discover and parse JUnit XML test results ──────────────────────
+    const JUNIT_WELL_KNOWN_PATHS = [
+        "junit-results.xml",
+        "junit.xml",
+        "test-results.xml",
+        "test-results/junit.xml",
+        "test-report.xml",
+        "reports/junit.xml",
+    ];
     let tests;
-    if (config.junitPath && existsSync(config.junitPath)) {
-        try {
-            const xml = await readFile(config.junitPath, "utf8");
-            tests = parseJUnitXmlFile(xml);
-            console.log(`${LOG_PREFIX} Parsed ${tests.length} test(s) from ${config.junitPath}`);
-        }
-        catch (err) {
-            console.warn(`${LOG_PREFIX} Failed to read JUnit XML at ${config.junitPath}:`, err);
+    const searchPaths = config.junitPath
+        ? [config.junitPath]
+        : JUNIT_WELL_KNOWN_PATHS.map((p) => resolve(config.workspace, p));
+    for (const candidate of searchPaths) {
+        if (existsSync(candidate)) {
+            try {
+                const xml = await readFile(candidate, "utf8");
+                tests = parseJUnitXmlFile(xml);
+                console.log(`${LOG_PREFIX} Parsed ${tests.length} test(s) from ${candidate}`);
+                break;
+            }
+            catch (err) {
+                console.warn(`${LOG_PREFIX} Failed to read JUnit XML at ${candidate}:`, err);
+            }
         }
     }
     const telemetry = {
