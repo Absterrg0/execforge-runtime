@@ -10,12 +10,12 @@ inputs:
   mode:
     description: >
       Capture mode:
-        'auto'   (default) — single step; starts on main run, posts on post-job hook.
-                             Add EXECFORGE_JOB_STATUS: ${{ job.status }} to the env
+        'auto'   (default) - single step; starts on main run, posts on post-job hook.
+                             Add EXECFORGE_JOB_STATUS in the workflow step env
                              to capture the real job outcome.
-        'start'  — explicit start step (use with finish sub-action, preferred).
-        'finish' — explicit finish step; always pair with if: always().
-        'run'    — (legacy) wraps one shell command; prefer start/finish instead.
+        'start'  - explicit start step (use with finish sub-action, preferred).
+        'finish' - explicit finish step; always pair with if: always().
+        'run'    - (legacy) wraps one shell command; prefer start/finish instead.
     required: false
     default: "auto"
   command:
