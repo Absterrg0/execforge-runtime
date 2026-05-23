@@ -1,6 +1,6 @@
 {
   "name": "@execforge/runtime",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ExecForge runtime telemetry SDK and GitHub Action.",
   "license": "MIT",
   "type": "module",

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 export const DEFAULT_API_URL = "https://execforge.vercel.app";
 export const SCHEMA_VERSION = "2026-05-14";
-export const COLLECTOR_VERSION = "0.2.0";
+export const COLLECTOR_VERSION = "0.2.1";
 function parseDotEnv(path) {
     if (!existsSync(path))
         return {};

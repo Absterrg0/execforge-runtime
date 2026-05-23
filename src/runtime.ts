@@ -216,18 +216,66 @@ export function parseJUnitXmlFile(xmlContent: string): ParsedTest[] {
     const hasError = /<error\b/i.test(body);
     const failed = hasFailure || hasError;
 
-    let failureMessage: string | undefined;
-    if (failed) {
-      const msgMatch = body.match(/<(?:failure|error)\b[^>]*?(?:message="([^"]*)")?[^>]*>/i);
-      if (msgMatch?.[1]) {
-        failureMessage = decodeXmlEntities(msgMatch[1]);
-      }
-    }
-
-    tests.push({ name, file, durationSec, failed, failureMessage });
+    tests.push({
+      name,
+      file,
+      durationSec,
+      failed,
+      failureMessage: failed ? extractFailureMessage(body) : undefined,
+    });
   }
 
   return tests;
+}
+
+/** Pull failure text from JUnit message attribute or element body (Node test runner uses both). */
+function extractFailureMessage(body: string): string | undefined {
+  const block = body.match(
+    /<(?:failure|error)\b([^>]*)>([\s\S]*?)<\/(?:failure|error)>/i,
+  );
+  if (block) {
+    const attrMsg = xmlAttr(block[1], "message");
+    if (attrMsg) return decodeXmlEntities(attrMsg).trim();
+    const inner = decodeXmlEntities(block[2]).replace(/\s+/g, " ").trim();
+    if (inner) return inner.slice(0, 2000);
+  }
+  const attrOnly = body.match(/<(?:failure|error)\b[^>]*\bmessage="([^"]*)"/i);
+  if (attrOnly?.[1]) return decodeXmlEntities(attrOnly[1]).trim();
+  return undefined;
+}
+
+function logJUnitSummary(
+  tests: ParsedTest[] | undefined,
+  sourcePath: string | undefined,
+  searchedPaths: string[],
+): void {
+  if (!tests?.length) {
+    if (sourcePath) {
+      console.warn(`${LOG_PREFIX} JUnit file found but contained no test cases: ${sourcePath}`);
+      return;
+    }
+    console.warn(
+      `${LOG_PREFIX} No JUnit results file found — per-test failure messages will not reach ExecForge AI.\n` +
+        `${LOG_PREFIX}   Searched: ${searchedPaths.join(", ")}\n` +
+        `${LOG_PREFIX}   Fix: emit junit-results.xml (e.g. node --test --test-reporter=junit --test-reporter-destination=junit-results.xml)\n` +
+        `${LOG_PREFIX}   Or set EXECFORGE_JUNIT_PATH to your results file before the finish step.`,
+    );
+    return;
+  }
+
+  const failed = tests.filter((t) => t.failed);
+  const passed = tests.length - failed.length;
+  const rel = sourcePath ?? "junit";
+  console.log(
+    `${LOG_PREFIX} JUnit: ${tests.length} test(s) from ${rel} — ${passed} passed, ${failed.length} failed`,
+  );
+  for (const t of failed.slice(0, 5)) {
+    const msg = t.failureMessage ? ` — ${t.failureMessage.slice(0, 240)}` : "";
+    console.log(`${LOG_PREFIX}   ✗ ${t.file} :: ${t.name}${msg}`);
+  }
+  if (failed.length > 5) {
+    console.log(`${LOG_PREFIX}   … and ${failed.length - 5} more failure(s)`);
+  }
 }
 
 // ─── Capture lifecycle ────────────────────────────────────────────────────────
@@ -270,6 +318,7 @@ export async function finishCapture(
   ];
 
   let tests: ParsedTest[] | undefined;
+  let junitSource: string | undefined;
   const searchPaths = config.junitPath
     ? [config.junitPath]
     : JUNIT_WELL_KNOWN_PATHS.map((p) => resolve(config.workspace, p));
@@ -279,13 +328,15 @@ export async function finishCapture(
       try {
         const xml = await readFile(candidate, "utf8");
         tests = parseJUnitXmlFile(xml);
-        console.log(`${LOG_PREFIX} Parsed ${tests.length} test(s) from ${candidate}`);
+        junitSource = candidate;
         break;
       } catch (err) {
         console.warn(`${LOG_PREFIX} Failed to read JUnit XML at ${candidate}:`, err);
       }
     }
   }
+
+  logJUnitSummary(tests, junitSource, searchPaths);
 
   const telemetry: RuntimeTelemetry = {
     ...state,

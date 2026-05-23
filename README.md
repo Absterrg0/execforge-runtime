@@ -103,6 +103,7 @@ Add it **once at the top** of your job steps (after `actions/checkout`).
 |---|---|---|
 | `EXECFORGE_API_TOKEN` | ✅ | Your ExecForge API token (Settings → API Keys) |
 | `EXECFORGE_JOB_STATUS` | Recommended | Pass `${{ job.status }}` to capture real job outcome |
+| `EXECFORGE_JUNIT_PATH` | Optional | Path to JUnit XML (default: auto-discover `junit-results.xml`, etc.) |
 | `EXECFORGE_API_URL` | Optional | Override the API endpoint (default: `https://execforge.vercel.app`) |
 | `EXECFORGE_JOB_EXIT_CODE` | Optional | Numeric exit code override (alternative to `EXECFORGE_JOB_STATUS`) |
 
@@ -133,6 +134,25 @@ EXECFORGE_API_TOKEN=your_token execforge finish --exit-code $?
 - **Job outcome** — success / failure / cancelled
 - **Runner info** — OS, arch, runner name, CPU count, total RAM
 - **Workflow metadata** — repo, branch, commit SHA, workflow name, run ID
+- **Per-test results** — from JUnit XML (name, file, duration, pass/fail, **failure message**)
+
+### JUnit XML (for AI failure analysis)
+
+At **finish**, the SDK auto-discovers `junit-results.xml` (and other well-known paths) or uses `EXECFORGE_JUNIT_PATH`. Failure messages are logged in the Actions console and posted to ExecForge for AI scan / run analysis.
+
+**Node.js built-in test runner:**
+
+```bash
+node --test \
+  --test-reporter=spec --test-reporter-destination=stdout \
+  --test-reporter=junit --test-reporter-destination=junit-results.xml
+```
+
+**Jest:** use `jest-junit` and write `junit-results.xml` (see ExecForge dashboard → Examples).
+
+| Variable | Description |
+|---|---|
+| `EXECFORGE_JUNIT_PATH` | Override path to your JUnit XML file (repo-relative or absolute) |
 
 ---
 
